@@ -13,6 +13,17 @@ const GAME_WIDTH = 927;
 const GAME_HEIGHT = 657;
 
 // =======================================
+// 2.5 GAME OVER
+// =======================================
+let gameOver = false
+
+let gameOverScale = 0 // empieza invisible
+let gameOverImage = new Image()
+
+// cambia la ruta tú
+gameOverImage.src = "assets/images/background/gameover.png"
+
+// =======================================
 // 3. TIPOS DE PLANTAS
 // =======================================
 
@@ -308,6 +319,12 @@ function updateZombies() {
   for (let i = 0; i < zombies.length; i++) {
     let z = zombies[i]; // ← SIEMPRE primero
 
+
+    if (z.x <= GRASS_X - 50) {
+      // cuando pasa el límite izquierdo
+      gameOver = true;
+    }
+
     // =======================================
     // ZOMBIE MUERTO
     // =======================================
@@ -495,43 +512,36 @@ function startWave() {
 
   console.log("Oleada:", currentWave + 1);
 }
-function updateWaves(){
+function updateWaves() {
+  // esperar siguiente oleada
+  if (!waveInProgress) {
+    waveTimer++;
 
-    // esperar siguiente oleada
-    if(!waveInProgress){
-
-        waveTimer++
-
-        if(waveTimer >= timeBetweenWaves){
-
-            waveTimer = 0
-            startWave()
-
-        }
-
-        return
+    if (waveTimer >= timeBetweenWaves) {
+      waveTimer = 0;
+      startWave();
     }
 
-    // spawnear zombies
-    spawnTimer++
+    return;
+  }
 
-    if(spawnTimer >= spawnInterval && zombiesSpawned < zombiesToSpawn){
+  // spawnear zombies
+  spawnTimer++;
 
-        spawnZombie()
+  if (spawnTimer >= spawnInterval && zombiesSpawned < zombiesToSpawn) {
+    spawnZombie();
 
-        zombiesSpawned++
-        spawnTimer = 0
-    }
+    zombiesSpawned++;
+    spawnTimer = 0;
+  }
 
-    // verificar fin de oleada
-    if(zombiesSpawned >= zombiesToSpawn && zombies.length === 0){
+  // verificar fin de oleada
+  if (zombiesSpawned >= zombiesToSpawn && zombies.length === 0) {
+    waveInProgress = false;
+    currentWave++;
 
-        waveInProgress = false
-        currentWave++
-
-        console.log("Oleada terminada")
-    }
-
+    console.log("Oleada terminada");
+  }
 }
 
 function drawPlants() {
@@ -705,6 +715,36 @@ function hasZombieInRow(row) {
   return false;
 }
 
+function drawGameOver() {
+  // crecer poco a poco
+  if (gameOverScale < 1) {
+    gameOverScale += 0.02;
+  }
+
+  let centerX = GAME_WIDTH / 2;
+  let centerY = GAME_HEIGHT / 2;
+
+  let width = 400 * gameOverScale;
+  let height = 200 * gameOverScale;
+
+  let x = centerX - width / 2;
+  let y = centerY - height / 2;
+
+  // fondo oscuro
+  ctx.fillStyle = "rgba(0,0,0,0.6)";
+  ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+  // imagen
+  ctx.drawImage(gameOverImage, x, y, width, height);
+
+  // texto reiniciar
+  if (gameOverScale >= 1) {
+    ctx.fillStyle = "white";
+    ctx.font = "30px Arial";
+    ctx.fillText("CLICK PARA REINICIAR", centerX - 150, centerY + 100);
+  }
+}
+
 // =======================================
 // 12. INPUT
 // =======================================
@@ -721,6 +761,10 @@ function getCellFromMouse(mouseX, mouseY) {
 }
 
 canvas.addEventListener("click", function (e) {
+  if (gameOver) {
+    location.reload();
+    return;
+  }
   const rect = canvas.getBoundingClientRect();
   const mouseX = (e.clientX - rect.left) / scale;
   const mouseY = (e.clientY - rect.top) / scale;
@@ -827,29 +871,31 @@ for(let i = 0; i < suns.length; i++){
 // =======================================
 // 13. GAME LOOP
 // =======================================
+function gameLoop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-function gameLoop(){
+  drawBackground();
 
-    ctx.clearRect(0,0,canvas.width,canvas.height)
+  if (!gameOver) {
+    updateWaves(); // 👈 FALTABA
+    updatePlants();
+    updateZombies();
+    updateProjectiles();
+    updateSuns(); // 👈 FALTABA
+  }
 
-    drawBackground()
-    updatePlants ()      // ← primero lógica
-    updateWaves();
-    updateZombies()   // ← primero lógica
-    updateProjectiles()  // ← luego lógica
-    updateSuns();  // ← primero lógica
+  drawPlants();
+  drawZombies();
+  drawProjectiles();
+  drawSuns(); // 👈 también faltaba dibujar
+  drawUI();
+  drawSunCounter(); // 👈 mostrar soles
 
-    
-    
-    drawSuns();  // ← luego render
-    drawSunCounter(); 
-    drawPlants()
-    drawZombies()     // ← luego render
-    drawProjectiles()  // ← luego render
-    drawUI()
+  if (gameOver) {
+    drawGameOver();
+  }
 
-    requestAnimationFrame(gameLoop)
-
+  requestAnimationFrame(gameLoop);
 }
 // =======================================
 // 14. START
