@@ -1,287 +1,598 @@
 // =======================================
-// OBTENER CANVAS Y CONTEXTO DE DIBUJO
+// 1. CANVAS
 // =======================================
 
-// Canvas principal donde se dibuja el juego
-const canvas = document.getElementById("gameCanvas")
-
-// Contexto 2D para dibujar sprites, formas, etc.
-const ctx = canvas.getContext("2d")
-
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
 // =======================================
-// DIMENSIONES BASE DEL JUEGO
+// 2. DIMENSIONES
 // =======================================
 
-// Tamaño real del fondo del juego
-const GAME_WIDTH = 927
-const GAME_HEIGHT = 657
-
+const GAME_WIDTH = 927;
+const GAME_HEIGHT = 657;
 
 // =======================================
-// CONFIGURACION DEL TABLERO (GRID)
+// 3. TIPOS DE PLANTAS
 // =======================================
 
-// PVZ usa 9 columnas y 5 filas
-const COLS = 9
-const ROWS = 5
-
-// Posición final del césped dentro del fondo
-let GRASS_X = 220
-let GRASS_Y = 175
-
-// Tamaño de cada celda del grid
-let CELL_WIDTH = 71.11
-let CELL_HEIGHT = 85.4
-
+const PLANTS = {
+  SUNFLOWER: 0,
+  PEASHOOTER: 1,
+  REPEATER: 2,
+  WALLNUT: 3,
+  REPEATER_UPGRADE: 4,
+  SHOVEL: 5,
+};
 
 // =======================================
-// ESCALADO PARA DIFERENTES PANTALLAS
+// 4. CLASES
 // =======================================
 
-// Variable que guarda el factor de escala
-let scale = 1
+class SpriteAnimation {
+  constructor(path, totalFrames) {
+    this.path = path;
+    this.totalFrames = totalFrames;
+    this.currentFrame = 0;
+    this.frameSpeed = 8;
+    this.frameTimer = 0;
+    this.images = [];
+    this.loadImages();
+  }
 
-function resizeCanvas(){
+  loadImages() {
+    for (let i = 0; i < this.totalFrames; i++) {
+      let num = i.toString().padStart(2, "0");
+      let img = new Image();
+      img.src = this.path + "frame_" + num + "_delay-0.08s.gif";
+      img.onerror = () => {
+        console.error("Error cargando frame:", img.src);
+      };
+      this.images.push(img);
+    }
+  }
 
-    // Tamaño de la pantalla del usuario
-    const screenWidth = window.innerWidth
-    const screenHeight = window.innerHeight
+  update() {
+    this.frameTimer++;
+    if (this.frameTimer >= this.frameSpeed) {
+      this.frameTimer = 0;
+      this.currentFrame++;
+      if (this.currentFrame >= this.totalFrames) {
+        this.currentFrame = 0;
+      }
+    }
+  }
+  draw(x, y, width, height) {
+    let img = this.images[this.currentFrame];
 
-    // Escalado horizontal y vertical
-    const scaleX = screenWidth / GAME_WIDTH
-    const scaleY = screenHeight / GAME_HEIGHT
+    if (img && img.complete && img.naturalWidth !== 0) {
+      ctx.drawImage(img, x, y, width, height);
+    } else {
+      // dibuja el frame anterior si falla
+      let fallback = this.images[this.currentFrame - 1];
 
-    // Usamos el menor para mantener proporción
-    scale = Math.min(scaleX, scaleY)
-
-    // Ajustar tamaño real del canvas
-    canvas.width = GAME_WIDTH * scale
-    canvas.height = GAME_HEIGHT * scale
-
-    // Escalar todo el contexto
-    ctx.setTransform(scale,0,0,scale,0,0)
-
+      if (fallback && fallback.complete) {
+        ctx.drawImage(fallback, x, y, width, height);
+      }
+    }
+  }
 }
 
-// Recalcular si cambia tamaño de ventana
-window.addEventListener("resize", resizeCanvas)
+class Zombie {
+  constructor(row) {
+    this.row = row;
 
-// Ejecutar al iniciar
-resizeCanvas()
+    this.x = GRASS_X + COLS * CELL_WIDTH;
+    this.y = GRASS_Y + row * CELL_HEIGHT;
+
+    this.width = CELL_WIDTH;
+    this.height = CELL_HEIGHT;
+
+    this.speed = 0.3;
+    this.hp = 100;
+
+    // estado actual
+    this.state = "walk"; // walk | eat | dead
+
+    // animaciones
+    this.animations = {
+      walk: new SpriteAnimation("assets/images/zombies/zombie_walking/", 21),
+      eat: new SpriteAnimation("assets/images/zombies/zombie_eating/", 20),
+      dead: new SpriteAnimation("assets/images/zombies/zombie_death/", 17),
+    };
+  }
+
+  update() {
+    // cambiar comportamiento según estado
+    if (this.state === "walk") {
+      this.x -= this.speed;
+    }
+
+    // actualizar animación actual
+    this.animations[this.state].update();
+  }
+
+  draw() {
+    this.animations[this.state].draw(
+      this.x - 20, // ← mover izquierda
+      this.y - 20, // ← subir
+      this.width + 40, // ← agrandar ancho
+      this.height + 40, // ← agrandar alto
+    );
+  }
+}
+
+class Projectile {
+  constructor(x, y, row) {
+    this.x = x;
+    this.y = y;
+    this.row = row;
+
+    this.width = 20;
+    this.height = 20;
+
+    this.speed = 2;
+    this.damage = 20;
+  }
+
+  update() {
+    this.x += this.speed;
+  }
+
+  draw() {
+    // puedes cambiar esto por sprite después
+    ctx.fillStyle = "lime";
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+function shootPea(x, y, row) {
+  projectiles.push(new Projectile(x, y, row));
+}
+
+// =======================================
+// SPAWN DE ZOMBIES
+// =======================================
+
+let spawnTimer = 0
+let spawnInterval = 200 // frames
+
+function spawnZombie(){
+
+    let randomRow = Math.floor(Math.random() * ROWS)
+
+    let zombie = new Zombie(randomRow)
+
+    zombies.push(zombie)
+
+}
+// =======================================
+// 5. INSTANCIAS (ANIMACIONES)
+// =======================================
+
+const plantAnimations = {};
+
+plantAnimations[PLANTS.SUNFLOWER] = new SpriteAnimation(
+  "assets/images/plants/girasol/",
+  12,
+);
+plantAnimations[PLANTS.PEASHOOTER] = new SpriteAnimation(
+  "assets/images/plants/lanzaguisantes/",
+  24,
+);
+plantAnimations[PLANTS.REPEATER] = new SpriteAnimation(
+  "assets/images/plants/repetidora/",
+  19,
+);
+plantAnimations[PLANTS.WALLNUT] = new SpriteAnimation(
+  "assets/images/plants/nuez/",
+  11,
+);
+plantAnimations[PLANTS.REPEATER_UPGRADE] = new SpriteAnimation(
+  "assets/images/plants/repetidora_mejora/",
+  12,
+);
 
 
 // =======================================
-// CARGAR IMAGEN DEL FONDO
+// 6. UI (ICONOS)
 // =======================================
 
-// Imagen del jardín
-const garden = new Image()
+const iconImages = [];
 
-// Ruta del archivo
-garden.src = "assets/images/background/froont.png"
+const iconPaths = [
+  "assets/images/icons/girasol_icon.png",
+  "assets/images/icons/lanzaguisantes_icon.png",
+  "assets/images/icons/repetidora_icon.png",
+  "assets/images/icons/nuez_icon.png",
+  "assets/images/icons/metralleta_icon.png",
+  "assets/images/icons/pala_icon.png",
+];
 
+for (let i = 0; i < iconPaths.length; i++) {
+  let img = new Image();
+  img.src = iconPaths[i];
+  iconImages.push(img);
+}
+
+let selectedIcon = -1;
+
+let UI_X = 230;
+let UI_Y = 48;
+let ICON_WIDTH = 58;
+let ICON_HEIGHT = 80;
+let ICON_SPACING = 10;
+const TOTAL_ICONS = 6;
 
 // =======================================
-// TABLERO LOGICO DEL JUEGO
+// 7. GRID
 // =======================================
 
-// Matriz donde se guardarán las plantas
-let board = []
+const COLS = 9;
+const ROWS = 5;
 
-function createBoard(){
+let GRASS_X = 220;
+let GRASS_Y = 175;
 
-    for(let row = 0; row < ROWS; row++){
+let CELL_WIDTH = 71.11;
+let CELL_HEIGHT = 85.4;
 
-        // crear fila
-        board[row] = []
+// =======================================
+// 7.5 ZOMBIES
+// =======================================
+let zombies = [];
 
-        for(let col = 0; col < COLS; col++){
+// =======================================
+// 7.6 LÓGICA DE ZOMBIES y proyectiles
+// =======================================
 
-            // cada celda inicia vacía
-            board[row][col] = null
+let projectiles = [];
 
+function updateZombies() {
+  spawnTimer++;
+
+  if (spawnTimer >= spawnInterval) {
+    spawnTimer = 0;
+    spawnZombie();
+  }
+
+  for (let i = 0; i < zombies.length; i++) {
+    let z = zombies[i];
+
+    let col = Math.floor((z.x - GRASS_X) / CELL_WIDTH);
+
+    if (col >= 0 && col < COLS) {
+      let plant = board[z.row][col];
+
+      if (plant !== null) {
+        // 🧠 zombie entra en modo comer
+        z.state = "eat";
+
+        plant.hp -= 0.2;
+
+        if (plant.hp <= 0) {
+          board[z.row][col] = null;
+
+          // vuelve a caminar
+          z.state = "walk";
         }
 
+        continue; // importante
+      }
     }
 
+    // si no hay planta
+    z.state = "walk";
+    z.update();
+  }
+}
+// =======================================
+// 8. TABLERO
+// =======================================
+
+let board = [];
+
+function createBoard() {
+  for (let row = 0; row < ROWS; row++) {
+    board[row] = [];
+    for (let col = 0; col < COLS; col++) {
+      board[row][col] = null;
+    }
+  }
 }
 
-// crear tablero
-createBoard()
-
+createBoard();
 
 // =======================================
-// DIBUJAR FONDO DEL JUEGO
+// 9. ESCALADO
 // =======================================
 
-function drawBackground(){
+let scale = 1;
 
-    ctx.drawImage(
-        garden,
-        0,
-        0,
-        GAME_WIDTH,
-        GAME_HEIGHT
-    )
+function resizeCanvas() {
+  const screenWidth = window.innerWidth;
+  const screenHeight = window.innerHeight;
 
+  const scaleX = screenWidth / GAME_WIDTH;
+  const scaleY = screenHeight / GAME_HEIGHT;
+
+  scale = Math.min(scaleX, scaleY);
+
+  canvas.width = GAME_WIDTH * scale;
+  canvas.height = GAME_HEIGHT * scale;
+
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
 }
 
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
 
 // =======================================
-// DIBUJAR GRID DEL JARDIN (SOLO DEBUG)
+// 10. FONDO
 // =======================================
 
-function drawGrid(){
+const garden = new Image();
+garden.src = "assets/images/background/froont.png";
 
-    ctx.strokeStyle = "rgba(0,255,0,0.5)"
-    ctx.lineWidth = 2
+// =======================================
+// 11. FUNCIONES DE DIBUJO
+// =======================================
 
-    for(let row = 0; row < ROWS; row++){
+function drawBackground() {
+  ctx.drawImage(garden, 0, 0, GAME_WIDTH, GAME_HEIGHT);
+}
 
-        for(let col = 0; col < COLS; col++){
+function drawUI() {
+  for (let i = 0; i < TOTAL_ICONS; i++) {
+    let x = UI_X + i * (ICON_WIDTH + ICON_SPACING);
+    let y = UI_Y;
 
-            // calcular posición de celda
-            let x = GRASS_X + col * CELL_WIDTH
-            let y = GRASS_Y + row * CELL_HEIGHT
+    let img = iconImages[i];
 
-            ctx.strokeRect(
-                x,
-                y,
-                CELL_WIDTH,
-                CELL_HEIGHT
-            )
+    if (img && img.complete) {
+      ctx.drawImage(img, x, y, ICON_WIDTH, ICON_HEIGHT);
+    }
 
+    ctx.strokeStyle = i === selectedIcon ? "yellow" : "white";
+    ctx.lineWidth = i === selectedIcon ? 3 : 1;
+
+    ctx.strokeRect(x, y, ICON_WIDTH, ICON_HEIGHT);
+  }
+}
+
+function drawPlants() {
+
+  for (let row = 0; row < ROWS; row++) {
+
+    for (let col = 0; col < COLS; col++) {
+
+      let plant = board[row][col]; // ← aquí el cambio
+
+      if (plant !== null) {
+
+        let x = GRASS_X + col * CELL_WIDTH;
+        let y = GRASS_Y + row * CELL_HEIGHT;
+
+        let anim = plantAnimations[plant.type];
+
+        if (anim) {
+          anim.update();
+          anim.draw(
+            x + 5,
+            y + 5,
+            CELL_WIDTH - 10,
+            CELL_HEIGHT - 10
+          );
         }
 
-    }
-
-}
-
-
-// =======================================
-// OBTENER CELDA SEGUN POSICION DEL MOUSE
-// =======================================
-
-function getCellFromMouse(mouseX, mouseY){
-
-    // calcular columna
-    let col = Math.floor((mouseX - GRASS_X) / CELL_WIDTH)
-
-    // calcular fila
-    let row = Math.floor((mouseY - GRASS_Y) / CELL_HEIGHT)
-
-    // verificar si está dentro del grid
-    if(col >= 0 && col < COLS && row >= 0 && row < ROWS){
-
-        return {col,row}
+      }
 
     }
 
-    return null
+  }
 
 }
+function updatePlants() {
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      let plant = board[row][col];
 
+      if (plant !== null) {
+        if (
+          (plant.type === PLANTS.PEASHOOTER ||
+            plant.type === PLANTS.REPEATER ||
+            plant.type === PLANTS.REPEATER_UPGRADE) &&
+          hasZombieInRow(row)
+        ) {
+          // cooldown
+          if (!plant.shootTimer) {
+            plant.shootTimer = 0;
+          }
 
-// =======================================
-// DETECTAR CLICK DEL MOUSE
-// =======================================
+          plant.shootTimer++;
 
-canvas.addEventListener("click", function(e){
+if (plant.shootTimer > 60) {
+  let x = GRASS_X + col * CELL_WIDTH + CELL_WIDTH / 2;
+  let y = GRASS_Y + row * CELL_HEIGHT + CELL_HEIGHT / 2;
 
-    // obtener posicion real del canvas
-    const rect = canvas.getBoundingClientRect()
+  // 🌱 LANZAGUISANTES NORMAL
+  if (plant.type === PLANTS.PEASHOOTER) {
+    shootPea(x, y, row);
+  }
 
-    // ajustar por escala
-    const mouseX = (e.clientX - rect.left) / scale
-    const mouseY = (e.clientY - rect.top) / scale
+  // 🌱🌱 REPETIDORA (2 disparos seguidos)
+  if (plant.type === PLANTS.REPEATER) {
+    shootPea(x, y, row);
 
-    // obtener celda correspondiente
-    const cell = getCellFromMouse(mouseX, mouseY)
+    setTimeout(() => {
+      shootPea(x, y, row);
+    }, 150);
+  }
 
-    if(cell){
+  // 🌱🌱🌱 MEJORA (3 disparos)
+  if (plant.type === PLANTS.REPEATER_UPGRADE) {
+    shootPea(x, y, row);
 
-        // verificar si la celda está libre
-        if(board[cell.row][cell.col] === null){
+    setTimeout(() => {
+      shootPea(x, y, row);
+    }, 120);
 
-            // colocar planta de prueba
-            board[cell.row][cell.col] = "plant"
+    setTimeout(() => {
+      shootPea(x, y, row);
+    }, 240);
+  }
 
-            console.log("Planta colocada en:",cell.row,cell.col)
-
+  plant.shootTimer = 0;
+}
         }
+      }
+    }
+  }
+}
+function updateProjectiles() {
+  for (let i = 0; i < projectiles.length; i++) {
+    let p = projectiles[i];
 
+    p.update();
+
+    // eliminar si sale de pantalla
+    if (p.x > GAME_WIDTH) {
+      projectiles.splice(i, 1);
+      i--;
+      continue;
     }
 
-})
+    // colisión con zombies
+    for (let j = 0; j < zombies.length; j++) {
+      let z = zombies[j];
 
+      if (p.row === z.row && p.x < z.x + z.width && p.x + p.width > z.x) {
+        // daño
+        z.hp -= p.damage;
 
-// =======================================
-// DIBUJAR PLANTAS DE PRUEBA
-// =======================================
-
-function drawPlants(){
-
-    for(let row = 0; row < ROWS; row++){
-
-        for(let col = 0; col < COLS; col++){
-
-            // si hay una planta en esa celda
-            if(board[row][col] !== null){
-
-                // calcular posicion
-                let x = GRASS_X + col * CELL_WIDTH
-                let y = GRASS_Y + row * CELL_HEIGHT
-
-                // dibujar rectangulo de prueba
-                ctx.fillStyle = "yellow"
-
-                ctx.fillRect(
-                    x + 10,
-                    y + 10,
-                    CELL_WIDTH - 20,
-                    CELL_HEIGHT - 20
-                )
-
-            }
-
-        }
-
+        // eliminar proyectil
+        projectiles.splice(i, 1);
+        i--;
+        break;
+      }
     }
-
+  }
 }
 
+function drawProjectiles() {
+  for (let p of projectiles) {
+    p.draw();
+  }
+}
+function drawZombies() {
+  for (let i = 0; i < zombies.length; i++) {
+    zombies[i].draw();
+  }
+}
+function hasZombieInRow(row) {
+  for (let i = 0; i < zombies.length; i++) {
+    let z = zombies[i];
+
+    // solo si está en la misma fila y en pantalla
+    if (z.row === row && z.x > 0) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 // =======================================
-// GAME LOOP PRINCIPAL
+// 12. INPUT
+// =======================================
+
+function getCellFromMouse(mouseX, mouseY) {
+  let col = Math.floor((mouseX - GRASS_X) / CELL_WIDTH);
+  let row = Math.floor((mouseY - GRASS_Y) / CELL_HEIGHT);
+
+  if (col >= 0 && col < COLS && row >= 0 && row < ROWS) {
+    return { col, row };
+  }
+
+  return null;
+}
+
+canvas.addEventListener("click", function (e) {
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = (e.clientX - rect.left) / scale;
+  const mouseY = (e.clientY - rect.top) / scale;
+
+  // ICONOS
+  for (let i = 0; i < TOTAL_ICONS; i++) {
+    let x = UI_X + i * (ICON_WIDTH + ICON_SPACING);
+    let y = UI_Y;
+
+    if (
+      mouseX >= x &&
+      mouseX <= x + ICON_WIDTH &&
+      mouseY >= y &&
+      mouseY <= y + ICON_HEIGHT
+    ) {
+      selectedIcon = i;
+      return;
+    }
+  }
+
+  // GRID
+  const cell = getCellFromMouse(mouseX, mouseY);
+
+  if (cell && selectedIcon !== -1) {
+    let current = board[cell.row][cell.col];
+
+    if (selectedIcon === PLANTS.SHOVEL) {
+      if (current !== null) {
+        board[cell.row][cell.col] = null;
+      }
+      return;
+    }
+
+    if (selectedIcon === PLANTS.REPEATER_UPGRADE) {
+      if (current === PLANTS.REPEATER) {
+        board[cell.row][cell.col] = PLANTS.REPEATER_UPGRADE;
+      }
+      return;
+    }
+
+    if (current === null) {
+      board[cell.row][cell.col] = {
+        type: selectedIcon,
+        hp: 100,
+      };
+    }
+  }
+});
+
+// =======================================
+// 13. GAME LOOP
 // =======================================
 
 function gameLoop(){
 
-    // limpiar pantalla
     ctx.clearRect(0,0,canvas.width,canvas.height)
 
-    // dibujar fondo
     drawBackground()
+    updatePlants ()      // ← primero lógica
+    updateZombies()   // ← primero lógica
+    updateProjectiles()  // ← luego lógica
 
-    // dibujar grid
-    drawGrid()
-
-    // dibujar plantas
     drawPlants()
+    drawZombies()     // ← luego render
+    drawProjectiles()  // ← luego render
+    drawUI()
 
-    // repetir ciclo
     requestAnimationFrame(gameLoop)
 
 }
-
-
 // =======================================
-// INICIAR JUEGO CUANDO CARGUE EL FONDO
+// 14. START
 // =======================================
 
-garden.onload = function(){
-
-    gameLoop()
-
-}
+garden.onload = function () {
+  gameLoop();
+};
