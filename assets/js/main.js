@@ -26,6 +26,16 @@ const PLANTS = {
 };
 
 // =======================================
+// 3.5 TIPOS DE OLEADAS
+// =======================================
+
+const WAVES = [
+  { count: 3, interval: 120 },
+  { count: 5, interval: 100 },
+  { count: 8, interval: 80 },
+  { count: 12, interval: 60 },
+];
+// =======================================
 // 4. CLASES
 // =======================================
 
@@ -165,6 +175,15 @@ function shootPea(x, y, row) {
 let spawnTimer = 0
 let spawnInterval = 200 // frames
 
+let currentWave = 0
+let waveInProgress = false
+
+let waveTimer = 0
+let timeBetweenWaves = 300 // tiempo de espera
+
+let zombiesToSpawn = 0
+let zombiesSpawned = 0
+
 function spawnZombie(){
 
     let randomRow = Math.floor(Math.random() * ROWS)
@@ -261,7 +280,12 @@ const PLANT_COST = {
   [PLANTS.WALLNUT]: 50,
   [PLANTS.REPEATER_UPGRADE]: 150,
 };
+function drawSunCounter() {
+  ctx.fillStyle = "yellow";
+  ctx.font = "24px Arial";
 
+  ctx.fillText("☀ " + sunPoints, 20, 100);
+}
 // =======================================
 // 7.5 ZOMBIES
 // =======================================
@@ -273,12 +297,13 @@ let zombies = [];
 
 let projectiles = [];
 function updateZombies() {
-  spawnTimer++;
+  
+  /*spawnTimer++;
   
   if (spawnTimer >= spawnInterval) {
     spawnTimer = 0;
     spawnZombie();
-  }
+  }*/
 
   for (let i = 0; i < zombies.length; i++) {
     let z = zombies[i]; // ← SIEMPRE primero
@@ -453,6 +478,62 @@ function drawSuns() {
   }
 }
 
+function startWave() {
+  if (currentWave >= WAVES.length) {
+    console.log("Ganaste (por ahora)");
+    return;
+  }
+
+  let wave = WAVES[currentWave];
+
+  zombiesToSpawn = wave.count;
+  zombiesSpawned = 0;
+
+  spawnInterval = wave.interval;
+
+  waveInProgress = true;
+
+  console.log("Oleada:", currentWave + 1);
+}
+function updateWaves(){
+
+    // esperar siguiente oleada
+    if(!waveInProgress){
+
+        waveTimer++
+
+        if(waveTimer >= timeBetweenWaves){
+
+            waveTimer = 0
+            startWave()
+
+        }
+
+        return
+    }
+
+    // spawnear zombies
+    spawnTimer++
+
+    if(spawnTimer >= spawnInterval && zombiesSpawned < zombiesToSpawn){
+
+        spawnZombie()
+
+        zombiesSpawned++
+        spawnTimer = 0
+    }
+
+    // verificar fin de oleada
+    if(zombiesSpawned >= zombiesToSpawn && zombies.length === 0){
+
+        waveInProgress = false
+        currentWave++
+
+        console.log("Oleada terminada")
+    }
+
+}
+
 function drawPlants() {
 
   for (let row = 0; row < ROWS; row++) {
@@ -486,11 +567,8 @@ function drawPlants() {
 
 }
 function updatePlants() {
-
   for (let row = 0; row < ROWS; row++) {
-
     for (let col = 0; col < COLS; col++) {
-
       let plant = board[row][col];
 
       if (plant === null) continue;
@@ -500,20 +578,18 @@ function updatePlants() {
       // =======================================
 
       if (plant.type === PLANTS.SUNFLOWER) {
-
         if (!plant.sunTimer) plant.sunTimer = 0;
 
         plant.sunTimer++;
 
         if (plant.sunTimer > 300) {
-
           suns.push({
             x: GRASS_X + col * CELL_WIDTH + CELL_WIDTH / 2,
             y: GRASS_Y + row * CELL_HEIGHT,
             targetY: GRASS_Y + row * CELL_HEIGHT + 20,
             speed: 0.5,
             value: 25,
-            collected: false
+            collected: false,
           });
 
           plant.sunTimer = 0;
@@ -526,18 +602,16 @@ function updatePlants() {
 
       if (
         (plant.type === PLANTS.PEASHOOTER ||
-         plant.type === PLANTS.REPEATER ||
-         plant.type === PLANTS.REPEATER_UPGRADE) &&
+          plant.type === PLANTS.REPEATER ||
+          plant.type === PLANTS.REPEATER_UPGRADE) &&
         hasZombieInRow(row)
       ) {
-
         // inicializar cooldown
         if (!plant.shootTimer) plant.shootTimer = 0;
 
         plant.shootTimer++;
 
         if (plant.shootTimer > 60) {
-
           let x = GRASS_X + col * CELL_WIDTH + CELL_WIDTH / 2;
           let y = GRASS_Y + row * CELL_HEIGHT + CELL_HEIGHT / 2;
 
@@ -548,7 +622,6 @@ function updatePlants() {
 
           // 🌱🌱 REPETIDORA
           if (plant.type === PLANTS.REPEATER) {
-
             shootPea(x, y, row);
 
             setTimeout(() => {
@@ -558,7 +631,6 @@ function updatePlants() {
 
           // 🌱🌱🌱 MEJORA
           if (plant.type === PLANTS.REPEATER_UPGRADE) {
-
             shootPea(x, y, row);
 
             setTimeout(() => {
@@ -573,7 +645,6 @@ function updatePlants() {
           plant.shootTimer = 0;
         }
       }
-
     }
   }
 }
@@ -659,15 +730,23 @@ canvas.addEventListener("click", function (e) {
     let x = UI_X + i * (ICON_WIDTH + ICON_SPACING);
     let y = UI_Y;
 
-    if (
-      mouseX >= x &&
-      mouseX <= x + ICON_WIDTH &&
-      mouseY >= y &&
-      mouseY <= y + ICON_HEIGHT
-    ) {
-      selectedIcon = i;
-      return;
-    }
+if (
+  mouseX >= x &&
+  mouseX <= x + ICON_WIDTH &&
+  mouseY >= y &&
+  mouseY <= y + ICON_HEIGHT
+) {
+  // 🔁 toggle selección
+  if (selectedIcon === i) {
+    selectedIcon = -1; // deseleccionar
+    console.log("Deseleccionado");
+  } else {
+    selectedIcon = i;
+    console.log("Seleccionado:", i);
+  }
+
+  return;
+}
   }
 
   // =======================================
@@ -708,26 +787,39 @@ for(let i = 0; i < suns.length; i++){
       return;
     }
 
-   if (selectedIcon === PLANTS.REPEATER_UPGRADE) {
-     if (current !== null && current.type === PLANTS.REPEATER) {
-       board[cell.row][cell.col] = {
-         type: PLANTS.REPEATER_UPGRADE,
-         hp: current.hp, // opcional: conservar vida
-       };
+    if (selectedIcon === PLANTS.REPEATER_UPGRADE) {
+      if (current !== null && current.type === PLANTS.REPEATER) {
+        board[cell.row][cell.col] = {
+          type: PLANTS.REPEATER_UPGRADE,
+          hp: current.hp, // opcional: conservar vida
+        };
 
-       console.log("Repetidora mejorada");
-     } else {
-       console.log("No se puede mejorar aquí");
-     }
+        console.log("Repetidora mejorada");
+      } else {
+        console.log("No se puede mejorar aquí");
+      }
 
-     return;
-   }
+      return;
+    }
 
     if (current === null) {
-      board[cell.row][cell.col] = {
-        type: selectedIcon,
-        hp: 100,
-      };
+      let cost = PLANT_COST[selectedIcon] || 0;
+
+      if (sunPoints >= cost) {
+        sunPoints -= cost;
+
+        board[cell.row][cell.col] = {
+          type: selectedIcon,
+          hp: 100,
+          shootTimer: 0,
+        };
+
+        selectedIcon = -1; // ← DESELECCIONA AUTOMÁTICAMENTE
+        
+        console.log("Plantado. Soles:", sunPoints);
+      } else {
+        console.log("No tienes suficientes soles");
+      }
     }
   }
 });
@@ -742,11 +834,15 @@ function gameLoop(){
 
     drawBackground()
     updatePlants ()      // ← primero lógica
+    updateWaves();
     updateZombies()   // ← primero lógica
     updateProjectiles()  // ← luego lógica
     updateSuns();  // ← primero lógica
+
+    
     
     drawSuns();  // ← luego render
+    drawSunCounter(); 
     drawPlants()
     drawZombies()     // ← luego render
     drawProjectiles()  // ← luego render
