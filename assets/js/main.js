@@ -103,12 +103,19 @@ class Zombie {
   }
 
   update() {
-    // cambiar comportamiento según estado
     if (this.state === "walk") {
       this.x -= this.speed;
     }
 
-    // actualizar animación actual
+    if (this.state === "dead") {
+      this.deathTimer++;
+
+      // duración de animación
+      if (this.deathTimer > 29) {
+        this.toDelete = true;
+      }
+    }
+
     this.animations[this.state].update();
   }
 
@@ -238,6 +245,23 @@ let GRASS_Y = 175;
 let CELL_WIDTH = 71.11;
 let CELL_HEIGHT = 85.4;
 
+
+// =======================================
+// 7.4 LÓGICA DE LOS SOLES
+// =======================================
+let suns = [];
+let sunSpawnTimer = 0
+let sunSpawnInterval = 300 // base
+let sunPoints = 50;
+
+const PLANT_COST = {
+  [PLANTS.SUNFLOWER]: 50,
+  [PLANTS.PEASHOOTER]: 100,
+  [PLANTS.REPEATER]: 200,
+  [PLANTS.WALLNUT]: 50,
+  [PLANTS.REPEATER_UPGRADE]: 150,
+};
+
 // =======================================
 // 7.5 ZOMBIES
 // =======================================
@@ -248,17 +272,34 @@ let zombies = [];
 // =======================================
 
 let projectiles = [];
-
 function updateZombies() {
   spawnTimer++;
-
+  
   if (spawnTimer >= spawnInterval) {
     spawnTimer = 0;
     spawnZombie();
   }
 
   for (let i = 0; i < zombies.length; i++) {
-    let z = zombies[i];
+    let z = zombies[i]; // ← SIEMPRE primero
+
+    // =======================================
+    // ZOMBIE MUERTO
+    // =======================================
+    if (z.state === "dead") {
+      z.update();
+
+      if (z.toDelete) {
+        zombies.splice(i, 1);
+        i--;
+      }
+
+      continue;
+    }
+
+    // =======================================
+    // DETECTAR COLISION CON PLANTA
+    // =======================================
 
     let col = Math.floor((z.x - GRASS_X) / CELL_WIDTH);
 
@@ -266,7 +307,6 @@ function updateZombies() {
       let plant = board[z.row][col];
 
       if (plant !== null) {
-        // 🧠 zombie entra en modo comer
         z.state = "eat";
 
         plant.hp -= 0.2;
@@ -274,15 +314,17 @@ function updateZombies() {
         if (plant.hp <= 0) {
           board[z.row][col] = null;
 
-          // vuelve a caminar
           z.state = "walk";
         }
 
-        continue; // importante
+        continue;
       }
     }
 
-    // si no hay planta
+    // =======================================
+    // CAMINAR
+    // =======================================
+
     z.state = "walk";
     z.update();
   }
@@ -361,6 +403,56 @@ function drawUI() {
   }
 }
 
+function spawnSun() {
+  let x = Math.random() * (GAME_WIDTH - 80) + 40;
+
+  suns.push({
+    x: x,
+    y: -50, // empieza arriba
+    targetY: Math.random() * (GAME_HEIGHT - 200) + 100,
+    speed: 1,
+    value: 25,
+    collected: false,
+  });
+}
+function updateSuns() {
+  sunSpawnTimer++;
+
+  if (sunSpawnTimer > sunSpawnInterval) {
+    spawnSun();
+
+    sunSpawnTimer = 0;
+
+    // intervalo variable (no tan predecible)
+    sunSpawnInterval = 200 + Math.random() * 200;
+  }
+
+  for (let i = 0; i < suns.length; i++) {
+    let s = suns[i];
+
+    // caer hasta su destino
+    if (s.y < s.targetY) {
+      s.y += s.speed;
+    }
+
+    // eliminar si ya fue recogido
+    if (s.collected) {
+      suns.splice(i, 1);
+      i--;
+    }
+  }
+}
+
+function drawSuns() {
+  for (let s of suns) {
+    ctx.fillStyle = "yellow";
+
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, 20, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 function drawPlants() {
 
   for (let row = 0; row < ROWS; row++) {
@@ -394,59 +486,94 @@ function drawPlants() {
 
 }
 function updatePlants() {
+
   for (let row = 0; row < ROWS; row++) {
+
     for (let col = 0; col < COLS; col++) {
+
       let plant = board[row][col];
 
-      if (plant !== null) {
-        if (
-          (plant.type === PLANTS.PEASHOOTER ||
-            plant.type === PLANTS.REPEATER ||
-            plant.type === PLANTS.REPEATER_UPGRADE) &&
-          hasZombieInRow(row)
-        ) {
-          // cooldown
-          if (!plant.shootTimer) {
-            plant.shootTimer = 0;
-          }
+      if (plant === null) continue;
 
-          plant.shootTimer++;
+      // =======================================
+      // 🌻 GIRASOL GENERA SOLES
+      // =======================================
 
-if (plant.shootTimer > 60) {
-  let x = GRASS_X + col * CELL_WIDTH + CELL_WIDTH / 2;
-  let y = GRASS_Y + row * CELL_HEIGHT + CELL_HEIGHT / 2;
+      if (plant.type === PLANTS.SUNFLOWER) {
 
-  // 🌱 LANZAGUISANTES NORMAL
-  if (plant.type === PLANTS.PEASHOOTER) {
-    shootPea(x, y, row);
-  }
+        if (!plant.sunTimer) plant.sunTimer = 0;
 
-  // 🌱🌱 REPETIDORA (2 disparos seguidos)
-  if (plant.type === PLANTS.REPEATER) {
-    shootPea(x, y, row);
+        plant.sunTimer++;
 
-    setTimeout(() => {
-      shootPea(x, y, row);
-    }, 150);
-  }
+        if (plant.sunTimer > 300) {
 
-  // 🌱🌱🌱 MEJORA (3 disparos)
-  if (plant.type === PLANTS.REPEATER_UPGRADE) {
-    shootPea(x, y, row);
+          suns.push({
+            x: GRASS_X + col * CELL_WIDTH + CELL_WIDTH / 2,
+            y: GRASS_Y + row * CELL_HEIGHT,
+            targetY: GRASS_Y + row * CELL_HEIGHT + 20,
+            speed: 0.5,
+            value: 25,
+            collected: false
+          });
 
-    setTimeout(() => {
-      shootPea(x, y, row);
-    }, 120);
-
-    setTimeout(() => {
-      shootPea(x, y, row);
-    }, 240);
-  }
-
-  plant.shootTimer = 0;
-}
+          plant.sunTimer = 0;
         }
       }
+
+      // =======================================
+      // 🔫 PLANTAS QUE DISPARAN
+      // =======================================
+
+      if (
+        (plant.type === PLANTS.PEASHOOTER ||
+         plant.type === PLANTS.REPEATER ||
+         plant.type === PLANTS.REPEATER_UPGRADE) &&
+        hasZombieInRow(row)
+      ) {
+
+        // inicializar cooldown
+        if (!plant.shootTimer) plant.shootTimer = 0;
+
+        plant.shootTimer++;
+
+        if (plant.shootTimer > 60) {
+
+          let x = GRASS_X + col * CELL_WIDTH + CELL_WIDTH / 2;
+          let y = GRASS_Y + row * CELL_HEIGHT + CELL_HEIGHT / 2;
+
+          // 🌱 LANZAGUISANTES
+          if (plant.type === PLANTS.PEASHOOTER) {
+            shootPea(x, y, row);
+          }
+
+          // 🌱🌱 REPETIDORA
+          if (plant.type === PLANTS.REPEATER) {
+
+            shootPea(x, y, row);
+
+            setTimeout(() => {
+              shootPea(x, y, row);
+            }, 150);
+          }
+
+          // 🌱🌱🌱 MEJORA
+          if (plant.type === PLANTS.REPEATER_UPGRADE) {
+
+            shootPea(x, y, row);
+
+            setTimeout(() => {
+              shootPea(x, y, row);
+            }, 120);
+
+            setTimeout(() => {
+              shootPea(x, y, row);
+            }, 240);
+          }
+
+          plant.shootTimer = 0;
+        }
+      }
+
     }
   }
 }
@@ -468,9 +595,13 @@ function updateProjectiles() {
       let z = zombies[j];
 
       if (p.row === z.row && p.x < z.x + z.width && p.x + p.width > z.x) {
+
         // daño
         z.hp -= p.damage;
-
+        if (z.hp <= 0) {
+          z.state = "dead";
+          z.deathTimer = 0;
+        }
         // eliminar proyectil
         projectiles.splice(i, 1);
         i--;
@@ -539,6 +670,31 @@ canvas.addEventListener("click", function (e) {
     }
   }
 
+  // =======================================
+// CLICK EN SOLES
+// =======================================
+
+for(let i = 0; i < suns.length; i++){
+
+    let s = suns[i]
+
+    let dx = mouseX - s.x
+    let dy = mouseY - s.y
+
+    let dist = Math.sqrt(dx*dx + dy*dy)
+
+    if(dist < 20){
+
+        sunPoints += s.value
+        s.collected = true
+
+        console.log("☀️ +25 → Total:", sunPoints)
+
+        return
+    }
+
+}
+
   // GRID
   const cell = getCellFromMouse(mouseX, mouseY);
 
@@ -552,12 +708,20 @@ canvas.addEventListener("click", function (e) {
       return;
     }
 
-    if (selectedIcon === PLANTS.REPEATER_UPGRADE) {
-      if (current === PLANTS.REPEATER) {
-        board[cell.row][cell.col] = PLANTS.REPEATER_UPGRADE;
-      }
-      return;
-    }
+   if (selectedIcon === PLANTS.REPEATER_UPGRADE) {
+     if (current !== null && current.type === PLANTS.REPEATER) {
+       board[cell.row][cell.col] = {
+         type: PLANTS.REPEATER_UPGRADE,
+         hp: current.hp, // opcional: conservar vida
+       };
+
+       console.log("Repetidora mejorada");
+     } else {
+       console.log("No se puede mejorar aquí");
+     }
+
+     return;
+   }
 
     if (current === null) {
       board[cell.row][cell.col] = {
@@ -580,7 +744,9 @@ function gameLoop(){
     updatePlants ()      // ← primero lógica
     updateZombies()   // ← primero lógica
     updateProjectiles()  // ← luego lógica
-
+    updateSuns();  // ← primero lógica
+    
+    drawSuns();  // ← luego render
     drawPlants()
     drawZombies()     // ← luego render
     drawProjectiles()  // ← luego render
