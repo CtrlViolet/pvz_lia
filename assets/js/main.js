@@ -832,15 +832,27 @@ for(let i = 0; i < suns.length; i++){
     }
 
     if (selectedIcon === PLANTS.REPEATER_UPGRADE) {
-      if (current !== null && current.type === PLANTS.REPEATER) {
-        board[cell.row][cell.col] = {
-          type: PLANTS.REPEATER_UPGRADE,
-          hp: current.hp, // opcional: conservar vida
-        };
+      let cost = PLANT_COST[PLANTS.REPEATER_UPGRADE] || 0;
 
-        console.log("Repetidora mejorada");
+      // validar si hay repetidora
+      if (current !== null && current.type === PLANTS.REPEATER) {
+        // validar soles
+        if (sunPoints >= cost) {
+          sunPoints -= cost;
+
+          board[cell.row][cell.col] = {
+            type: PLANTS.REPEATER_UPGRADE,
+            hp: current.hp,
+          };
+
+          selectedIcon = -1; // 👈 deseleccionar
+
+          console.log("Repetidora mejorada. Soles:", sunPoints);
+        } else {
+          console.log("No tienes suficientes soles");
+        }
       } else {
-        console.log("No se puede mejorar aquí");
+        console.log("Solo puedes mejorar una repetidora");
       }
 
       return;
