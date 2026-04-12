@@ -362,15 +362,15 @@ function drawSunCounter() {
 }
 
 function drawScore() {
-  // Puntuación actual
+  // Puntuación actual (derecha)
   ctx.fillStyle = "#FFD700";
   ctx.font = "bold 20px Arial";
-  ctx.fillText("PUNTOS: " + currentScore, 20, 135);
+  ctx.fillText("PUNTOS: " + currentScore, GAME_WIDTH - 210, 65);
 
-  // High Score
+  // High Score (derecha)
   ctx.fillStyle = "#FF6B6B";
   ctx.font = "bold 16px Arial";
-  ctx.fillText("MAX: " + highScore, 20, 160);
+  ctx.fillText("MAX: " + highScore, GAME_WIDTH - 210, 95);
 }
 // =======================================
 // 7.5 ZOMBIES
@@ -680,21 +680,14 @@ function updateWaves() {
     waveInProgress = false;
     currentWave++;
 
-    console.log("Oleada terminada");
-
-  }
-  if (zombiesSpawned >= zombiesToSpawn && zombies.length === 0) {
-
-    waveInProgress = false;
-    currentWave++;
+    console.log("Oleada terminada. Siguiente oleada:", currentWave + 1);
 
     // 🔥 SI YA NO HAY MÁS OLEADAS → GANASTE
     if (currentWave >= WAVES.length) {
-        gameWon = true;
+      gameWon = true;
+      console.log("🏆 ¡TODAS LAS OLEADAS COMPLETADAS! ¡GANASTE!");
     }
-
-    console.log("Oleada terminada");
-}
+  }
 }
 
 function drawWinScreen() {
