@@ -176,7 +176,7 @@ class Zombie {
     this.pointsAdded = false;
   }
 
-  update() {
+   update() {
     if (this.state === "walk") {
     this.x -= this.speed * deltaTime * 60  
   }
@@ -218,7 +218,7 @@ class Projectile {
     this.height = 20;
 
     this.speed = 2;
-    this.damage = 15;
+    this.damage = 20;
   }
 
   update() {
@@ -986,10 +986,23 @@ function handleGameInput(e) {
   }
 
   const rect = canvas.getBoundingClientRect();
-  const mouseX = (clientX - rect.left) / scale;
-  const mouseY = (clientY - rect.top) / scale;
+  
+  // Coordenadas relativas al canvas (sin escala)
+  const clickX = clientX - rect.left;
+  const clickY = clientY - rect.top;
+  
+  // Coordenadas en el sistema de coordenadas del juego (aplicando scale)
+  const gameX = clickX / scale;
+  const gameY = clickY / scale;
 
-  console.log("🖱️ INPUT - X:", mouseX.toFixed(2), "Y:", mouseY.toFixed(2), "Scale:", scale.toFixed(2));
+  console.log("═══ CLICK DEBUG ═══");
+  console.log("Canvas rect:", { left: rect.left, top: rect.top, width: rect.width, height: rect.height });
+  console.log("Canvas interno ancho/alto:", { width: canvas.width, height: canvas.height });
+  console.log("Client coords:", { clientX, clientY });
+  console.log("Click en canvas:", { clickX, clickY });
+  console.log("Game coords (con scale):", { gameX: gameX.toFixed(2), gameY: gameY.toFixed(2) });
+  console.log("Scale:", scale.toFixed(4));
+  console.log("═════════════════════");
 
   // ICONOS - Detección de clicks
   for (let i = 0; i < TOTAL_ICONS; i++) {
@@ -998,10 +1011,10 @@ function handleGameInput(e) {
     let margin = 5;
 
     if (
-      mouseX >= x - margin &&
-      mouseX <= x + ICON_WIDTH + margin &&
-      mouseY >= y - margin &&
-      mouseY <= y + ICON_HEIGHT + margin
+      gameX >= x - margin &&
+      gameX <= x + ICON_WIDTH + margin &&
+      gameY >= y - margin &&
+      gameY <= y + ICON_HEIGHT + margin
     ) {
       // 🔁 toggle selección
       if (selectedIcon === i) {
@@ -1016,15 +1029,18 @@ function handleGameInput(e) {
   }
 
   // CLICK EN SOLES - CON HITBOX GENEROSO
+  console.log("🔍 Verificando soles... Total:", suns.length);
   for (let i = 0; i < suns.length; i++) {
     let s = suns[i];
-    let hitMargin = 20; // 20px de margen generoso
+    let hitMargin = 25; // Margen muy generoso
+
+    console.log(`  Sol ${i}: x=${s.x.toFixed(2)}, y=${s.y.toFixed(2)}, size=${SUN_SIZE}`);
 
     if (
-      mouseX >= s.x - hitMargin &&
-      mouseX <= s.x + SUN_SIZE + hitMargin &&
-      mouseY >= s.y - hitMargin &&
-      mouseY <= s.y + SUN_SIZE + hitMargin
+      gameX >= s.x - hitMargin &&
+      gameX <= s.x + SUN_SIZE + hitMargin &&
+      gameY >= s.y - hitMargin &&
+      gameY <= s.y + SUN_SIZE + hitMargin
     ) {
       console.log("☀️ SOL DETECTADO en posición:", s.x, s.y);
 
@@ -1039,7 +1055,9 @@ function handleGameInput(e) {
   }
 
   // GRID - PLANTAR PLANTAS
-  const cell = getCellFromMouse(mouseX, mouseY);
+  const cell = getCellFromMouse(gameX, gameY);
+
+  console.log("🌱 Celda detectada:", cell);
 
   if (cell && selectedIcon !== -1) {
     let current = board[cell.row][cell.col];
