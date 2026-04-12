@@ -6,6 +6,18 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 // =======================================
+// 1.5 CONTROL DE TIEMPO
+// =======================================
+
+let lastTime = 0
+let deltaTime = 0
+// =======================================
+// 1.5 CONTROL DE TIEMPO
+// =======================================
+
+const MAX_SUN_POINTS = 500;
+
+// =======================================
 // 2. DIMENSIONES
 // =======================================
 
@@ -24,6 +36,13 @@ let gameOverImage = new Image()
 gameOverImage.src = "assets/images/background/gameover.png"
 
 // =======================================
+// 2.6 MÚSICA
+// =======================================
+
+let gameMusic = new Audio("assets/music/song3.mp3"); // tú cambias ruta
+gameMusic.loop = true;
+gameMusic.volume = 0.5;
+// =======================================
 // 3. TIPOS DE PLANTAS
 // =======================================
 
@@ -41,10 +60,16 @@ const PLANTS = {
 // =======================================
 
 const WAVES = [
-  { count: 3, interval: 120 },
-  { count: 5, interval: 100 },
-  { count: 8, interval: 80 },
-  { count: 12, interval: 60 },
+  { count: 5, interval: 120 },
+  { count: 8, interval: 110 },
+  { count: 12, interval: 100 },
+  { count: 18, interval: 90 },
+  { count: 25, interval: 80 },
+  { count: 35, interval: 70 },
+  { count: 50, interval: 60 },
+  { count: 70, interval: 50 },
+  { count: 90, interval: 45 },
+  { count: 120, interval: 40 }
 ];
 // =======================================
 // 4. CLASES
@@ -54,7 +79,7 @@ class SpriteAnimation {
   constructor(path, totalFrames) {
     this.path = path;
     this.totalFrames = totalFrames;
-    this.currentFrame = 0;
+    this.currentFrame = Math.floor(Math.random() * totalFrames)
     this.frameSpeed = 8;
     this.frameTimer = 0;
     this.images = [];
@@ -125,8 +150,8 @@ class Zombie {
 
   update() {
     if (this.state === "walk") {
-      this.x -= this.speed;
-    }
+    this.x -= this.speed * deltaTime * 60  
+  }
 
     if (this.state === "dead") {
       this.deathTimer++;
@@ -279,6 +304,11 @@ let CELL_HEIGHT = 85.4;
 // =======================================
 // 7.4 LÓGICA DE LOS SOLES
 // =======================================
+
+const MAX_SUNS = 8; // 🔥 prueba entre 5 y 8
+
+
+
 let suns = [];
 let sunSpawnTimer = 0
 let sunSpawnInterval = 300 // base
@@ -351,8 +381,7 @@ function updateZombies() {
       if (plant !== null) {
         z.state = "eat";
 
-        plant.hp -= 0.2;
-
+        plant.hp -= 20 * deltaTime
         if (plant.hp <= 0) {
           board[z.row][col] = null;
 
@@ -419,6 +448,10 @@ resizeCanvas();
 const garden = new Image();
 garden.src = "assets/images/background/froont.png";
 
+const sunImg = new Image();
+sunImg.src = "assets/images/icons/sun.png"; // <-- tú cambias la ruta
+const SUN_SIZE = 60; // puedes ajustar (50–80 recomendado)
+
 // =======================================
 // 11. FUNCIONES DE DIBUJO
 // =======================================
@@ -431,67 +464,108 @@ function drawUI() {
   for (let i = 0; i < TOTAL_ICONS; i++) {
     let x = UI_X + i * (ICON_WIDTH + ICON_SPACING);
     let y = UI_Y;
-
+    
     let img = iconImages[i];
-
+    
     if (img && img.complete) {
       ctx.drawImage(img, x, y, ICON_WIDTH, ICON_HEIGHT);
     }
-
+    
     ctx.strokeStyle = i === selectedIcon ? "yellow" : "white";
     ctx.lineWidth = i === selectedIcon ? 3 : 1;
-
+    
     ctx.strokeRect(x, y, ICON_WIDTH, ICON_HEIGHT);
   }
 }
-
-function spawnSun() {
-  let x = Math.random() * (GAME_WIDTH - 80) + 40;
-
+function drawSuns() {
+  for (let s of suns) {
+   if (sunImg.complete) {
+    ctx.drawImage(sunImg, s.x, s.y, SUN_SIZE, SUN_SIZE);
+}
+   ctx.strokeStyle = "rgba(255, 0, 0, 0.0)"; // totalmente invisible
+  ctx.strokeRect(s.x, s.y, SUN_SIZE, SUN_SIZE);
+  }
+}
+function spawnSunAt(x, y){
+  
   suns.push({
-    x: x,
-    y: -50, // empieza arriba
-    targetY: Math.random() * (GAME_HEIGHT - 200) + 100,
-    speed: 1,
-    value: 25,
-    collected: false,
-  });
+        x: x,
+        y: y - 20,         // sale un poco arriba
+        targetY: y + 30,   // luego baja
+        speed: 0.5,
+        collected: false,
+        lifeTime: 0,
+        value: 25
+    });
+
+}
+function spawnSun() {
+
+    let x = Math.random() * GAME_WIDTH;
+    let y = -50;
+
+    let targetY = 100 + Math.random() * 300;
+
+    suns.push({
+        x: x,
+        y: y,
+        targetY: targetY,
+        speed: 1,
+        collected: false,
+        lifeTime: 0,   // opcional pero recomendado
+        value: 25      // 🔥 ESTE ES EL QUE FALTABA
+    });
+
 }
 function updateSuns() {
+
+  // =======================================
+  // GENERACION CONTROLADA DESDE EL CIELO
+  // =======================================
+
   sunSpawnTimer++;
 
-  if (sunSpawnTimer > sunSpawnInterval) {
+  // 🔥 SOLO genera si no hay demasiados soles
+  if (sunSpawnTimer > sunSpawnInterval && suns.length < MAX_SUNS) {
+
     spawnSun();
 
     sunSpawnTimer = 0;
 
-    // intervalo variable (no tan predecible)
-    sunSpawnInterval = 200 + Math.random() * 200;
+    // 🔥 intervalo más lento y variable (menos spam)
+    sunSpawnInterval = 600 + Math.random() * 400;
+
   }
 
+  // =======================================
+  // ACTUALIZAR SOLES EXISTENTES
+  // =======================================
+
   for (let i = 0; i < suns.length; i++) {
+
     let s = suns[i];
 
-    // caer hasta su destino
+    // 🌞 caída suave
     if (s.y < s.targetY) {
       s.y += s.speed;
     }
 
-    // eliminar si ya fue recogido
+    // 🧹 eliminar si fue recolectado
     if (s.collected) {
       suns.splice(i, 1);
       i--;
+      continue;
     }
-  }
-}
 
-function drawSuns() {
-  for (let s of suns) {
-    ctx.fillStyle = "yellow";
+    // ⏳ OPCIONAL: desaparecer después de tiempo
+    if (!s.lifeTime) s.lifeTime = 0;
+    s.lifeTime++;
 
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, 20, 0, Math.PI * 2);
-    ctx.fill();
+    if (s.lifeTime > 600) { // ~10 segundos
+      suns.splice(i, 1);
+      i--;
+    }
+
   }
 }
 
@@ -557,8 +631,7 @@ function drawPlants() {
         let x = GRASS_X + col * CELL_WIDTH;
         let y = GRASS_Y + row * CELL_HEIGHT;
 
-        let anim = plantAnimations[plant.type];
-
+        let anim = plant.anim
         if (anim) {
           anim.update();
           anim.draw(
@@ -587,25 +660,26 @@ function updatePlants() {
       // 🌻 GIRASOL GENERA SOLES
       // =======================================
 
-      if (plant.type === PLANTS.SUNFLOWER) {
-        if (!plant.sunTimer) plant.sunTimer = 0;
+     if (plant.type === PLANTS.SUNFLOWER) {
 
-        plant.sunTimer++;
+    if (!plant.sunTimer) plant.sunTimer = 0;
 
-        if (plant.sunTimer > 300) {
-          suns.push({
-            x: GRASS_X + col * CELL_WIDTH + CELL_WIDTH / 2,
-            y: GRASS_Y + row * CELL_HEIGHT,
-            targetY: GRASS_Y + row * CELL_HEIGHT + 20,
-            speed: 0.5,
-            value: 25,
-            collected: false,
-          });
+    plant.sunTimer++;
 
-          plant.sunTimer = 0;
+    if (plant.sunTimer > 350) { // 🔥 más lento
+
+        if (suns.length < MAX_SUNS) {
+
+            let x = GRASS_X + col * CELL_WIDTH + CELL_WIDTH / 2;
+            let y = GRASS_Y + row * CELL_HEIGHT;
+
+            spawnSunAt(x, y);
+
         }
-      }
 
+        plant.sunTimer = 0;
+    }
+}
       // =======================================
       // 🔫 PLANTAS QUE DISPARAN
       // =======================================
@@ -619,9 +693,9 @@ function updatePlants() {
         // inicializar cooldown
         if (!plant.shootTimer) plant.shootTimer = 0;
 
-        plant.shootTimer++;
+        plant.shootTimer += deltaTime 
 
-        if (plant.shootTimer > 60) {
+        if (plant.shootTimer > 1) {
           let x = GRASS_X + col * CELL_WIDTH + CELL_WIDTH / 2;
           let y = GRASS_Y + row * CELL_HEIGHT + CELL_HEIGHT / 2;
 
@@ -715,6 +789,26 @@ function hasZombieInRow(row) {
   return false;
 }
 
+function getPlantPath(type){
+
+    if(type === PLANTS.SUNFLOWER) return "assets/images/plants/girasol/"
+    if(type === PLANTS.PEASHOOTER) return "assets/images/plants/lanzaguisantes/"
+    if(type === PLANTS.REPEATER) return "assets/images/plants/repetidora/"
+    if(type === PLANTS.WALLNUT) return "assets/images/plants/nuez/"
+    if(type === PLANTS.REPEATER_UPGRADE) return "assets/images/plants/repetidora_mejora/"
+
+}
+
+function getPlantFrames(type){
+
+    if(type === PLANTS.SUNFLOWER) return 12
+    if(type === PLANTS.PEASHOOTER) return 24
+    if(type === PLANTS.REPEATER) return 19
+    if(type === PLANTS.WALLNUT) return 11
+    if(type === PLANTS.REPEATER_UPGRADE) return 12
+
+}
+
 function drawGameOver() {
   // crecer poco a poco
   if (gameOverScale < 1) {
@@ -761,9 +855,15 @@ function getCellFromMouse(mouseX, mouseY) {
 }
 
 canvas.addEventListener("click", function (e) {
-  if (gameOver) {
+    if (gameOver) {
+    gameMusic.pause();
+    gameMusic.currentTime = 0;
     location.reload();
     return;
+  }
+
+  if (gameMusic.paused) {
+    gameMusic.play();
   }
   const rect = canvas.getBoundingClientRect();
   const mouseX = (e.clientX - rect.left) / scale;
@@ -797,25 +897,39 @@ if (
 // CLICK EN SOLES
 // =======================================
 
-for(let i = 0; i < suns.length; i++){
+for (let i = 0; i < suns.length; i++) {
 
-    let s = suns[i]
+    let s = suns[i];
 
-    let dx = mouseX - s.x
-    let dy = mouseY - s.y
+    // detectar click dentro del sol
+   if (
+  mouseX >= s.x &&
+  mouseX <= s.x + SUN_SIZE &&
+  mouseY >= s.y &&
+  mouseY <= s.y + SUN_SIZE
+){
 
-    let dist = Math.sqrt(dx*dx + dy*dy)
+        // =======================================
+        // SUMAR SOLES CON LIMITE
+        // =======================================
 
-    if(dist < 20){
+        if (sunPoints < MAX_SUN_POINTS) {
 
-        sunPoints += s.value
-        s.collected = true
+            // suma protegida
+            sunPoints = Math.min(
+                sunPoints + (s.value || 0),
+                MAX_SUN_POINTS
+            );
 
-        console.log("☀️ +25 → Total:", sunPoints)
+        }
 
-        return
+        // eliminar sol siempre (aunque no sume)
+        s.collected = true;
+
+        console.log("Soles:", sunPoints);
+
+        return;
     }
-
 }
 
   // GRID
@@ -840,11 +954,15 @@ for(let i = 0; i < suns.length; i++){
         if (sunPoints >= cost) {
           sunPoints -= cost;
 
-          board[cell.row][cell.col] = {
-            type: PLANTS.REPEATER_UPGRADE,
-            hp: current.hp,
-          };
+         board[cell.row][cell.col] = {
+        type: PLANTS.REPEATER_UPGRADE,
+         hp: current.hp,
 
+        anim: new SpriteAnimation(
+        getPlantPath(PLANTS.REPEATER_UPGRADE),
+         getPlantFrames(PLANTS.REPEATER_UPGRADE)
+        )
+    };
           selectedIcon = -1; // 👈 deseleccionar
 
           console.log("Repetidora mejorada. Soles:", sunPoints);
@@ -865,10 +983,16 @@ for(let i = 0; i < suns.length; i++){
         sunPoints -= cost;
 
         board[cell.row][cell.col] = {
-          type: selectedIcon,
-          hp: 100,
-          shootTimer: 0,
-        };
+        type: selectedIcon,
+        hp: 100,
+        shootTimer: 0,
+
+  // 👇 cada planta tiene su propia animación
+  anim: new SpriteAnimation(
+    getPlantPath(selectedIcon),
+    getPlantFrames(selectedIcon)
+  )
+};
 
         selectedIcon = -1; // ← DESELECCIONA AUTOMÁTICAMENTE
         
@@ -883,36 +1007,43 @@ for(let i = 0; i < suns.length; i++){
 // =======================================
 // 13. GAME LOOP
 // =======================================
-function gameLoop() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+function gameLoop(timestamp){
 
-  drawBackground();
+    if(!lastTime) lastTime = timestamp
 
-  if (!gameOver) {
-    updateWaves(); // 👈 FALTABA
-    updatePlants();
-    updateZombies();
-    updateProjectiles();
-    updateSuns(); // 👈 FALTABA
-  }
+    deltaTime = (timestamp - lastTime) / 1000 // en segundos
+    lastTime = timestamp
 
-  drawPlants();
-  drawZombies();
-  drawProjectiles();
-  drawSuns(); // 👈 también faltaba dibujar
-  drawUI();
-  drawSunCounter(); // 👈 mostrar soles
+    ctx.clearRect(0,0,canvas.width,canvas.height)
 
-  if (gameOver) {
-    drawGameOver();
-  }
+    drawBackground()
 
-  requestAnimationFrame(gameLoop);
+    if(!gameOver){
+        updateWaves()
+        updatePlants()
+        updateZombies()
+        updateProjectiles()
+        updateSuns()
+    }
+
+    drawPlants()
+    drawZombies()
+    drawProjectiles()
+    drawSuns()
+    drawUI()
+    drawSunCounter()
+
+    if(gameOver){
+        drawGameOver()
+    }
+
+    requestAnimationFrame(gameLoop)
 }
 // =======================================
 // 14. START
 // =======================================
 
 garden.onload = function () {
-  gameLoop();
+    gameMusic.play(); // 🔥 inicia música
+   gameLoop();
 };
