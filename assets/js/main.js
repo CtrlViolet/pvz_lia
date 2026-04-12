@@ -37,6 +37,8 @@ let waveMessageTimer = 0;
 // cambia la ruta tú
 gameOverImage.src = "assets/images/background/gameover.png"
 
+let gameWon = false;
+
 // =======================================
 // 2.6 MÚSICA
 // =======================================
@@ -140,7 +142,8 @@ class Zombie {
     this.height = CELL_HEIGHT;
 
     this.speed = 0.3;
-    this.hp = 100 + (currentWave * 50);    // estado actual
+    this.hp =100;
+    //this.hp = 100 + (currentWave * 50);    // estado actual
     this.state = "walk"; // walk | eat | dead
 
     // animaciones
@@ -639,7 +642,32 @@ function updateWaves() {
     currentWave++;
 
     console.log("Oleada terminada");
+
   }
+  if (zombiesSpawned >= zombiesToSpawn && zombies.length === 0) {
+
+    waveInProgress = false;
+    currentWave++;
+
+    // 🔥 SI YA NO HAY MÁS OLEADAS → GANASTE
+    if (currentWave >= WAVES.length) {
+        gameWon = true;
+    }
+
+    console.log("Oleada terminada");
+}
+}
+
+function drawWinScreen() {
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    ctx.fillStyle = "lime";
+    ctx.font = "50px Arial";
+    ctx.fillText("¡GANASTE!", GAME_WIDTH/2 - 140, GAME_HEIGHT/2);
+
+    ctx.font = "25px Arial";
+    ctx.fillText("CLICK PARA REINICIAR", GAME_WIDTH/2 - 150, GAME_HEIGHT/2 + 60);
 }
 
 function drawPlants() {
@@ -1042,7 +1070,7 @@ function gameLoop(timestamp){
 
     drawBackground()
 
-    if(!gameOver){
+    if(!gameOver && !gameWon){
         updateWaves()
         updatePlants()
         updateZombies()
@@ -1061,6 +1089,9 @@ function gameLoop(timestamp){
     if(gameOver){
         drawGameOver()
     }
+    if(gameWon){
+    drawWinScreen();
+}
 
     requestAnimationFrame(gameLoop)
 }
@@ -1078,6 +1109,11 @@ const startBtn = document.getElementById("startBtn");
 const startScreen = document.getElementById("startScreen");
 
 startBtn.addEventListener("click", () => {
+
+  if (gameWon) {
+    location.reload();
+    return;
+}
 
   clickSound.currentTime = 0; // 🔥 importante
   clickSound.play();
