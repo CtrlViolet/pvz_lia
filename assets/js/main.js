@@ -40,7 +40,28 @@ gameOverImage.src = "assets/images/background/gameover.png"
 let gameWon = false;
 
 // =======================================
-// 2.6 MÚSICA
+// 2.6 SCORE Y HIGH SCORE
+// =======================================
+let currentScore = 0;
+let highScore = 0;
+const ZOMBIE_KILL_POINTS = 100; // puntos por matar un zombie
+
+// Cargar high score con manejo de errores
+try {
+  const savedScore = localStorage.getItem("pvzHighScore");
+  if (savedScore) {
+    highScore = parseInt(savedScore);
+    console.log("✅ High Score cargado desde localStorage:", highScore);
+  } else {
+    console.log("ℹ️ No hay High Score guardado aún");
+  }
+} catch (e) {
+  console.warn("⚠️ localStorage no está disponible. Error:", e);
+  console.log("💡 Posible causa: Open Live Server o contexto de seguridad. El score se guardará solo en esta sesión.");
+}
+
+// =======================================
+// 2.7 MÚSICA
 // =======================================
 
 let gameMusic = new Audio("assets/music/song3.mp3"); // tú cambias ruta
@@ -152,6 +173,7 @@ class Zombie {
       eat: new SpriteAnimation("assets/images/zombies/zombie_eating/", 20),
       dead: new SpriteAnimation("assets/images/zombies/zombie_death/", 17),
     };
+    this.pointsAdded = false;
   }
 
   update() {
@@ -165,6 +187,11 @@ class Zombie {
       // duración de animación
       if (this.deathTimer > 29) {
         this.toDelete = true;
+        // Agregar puntos al matar el zombie
+        if (!this.pointsAdded) {
+          currentScore += ZOMBIE_KILL_POINTS;
+          this.pointsAdded = true;
+        }
       }
     }
 
@@ -332,6 +359,18 @@ function drawSunCounter() {
   ctx.font = "24px Arial";
 
   ctx.fillText("☀ " + sunPoints, 20, 100);
+}
+
+function drawScore() {
+  // Puntuación actual
+  ctx.fillStyle = "#FFD700";
+  ctx.font = "bold 20px Arial";
+  ctx.fillText("PUNTOS: " + currentScore, 20, 135);
+
+  // High Score
+  ctx.fillStyle = "#FF6B6B";
+  ctx.font = "bold 16px Arial";
+  ctx.fillText("MAX: " + highScore, 20, 160);
 }
 // =======================================
 // 7.5 ZOMBIES
@@ -666,8 +705,19 @@ function drawWinScreen() {
     ctx.font = "50px Arial";
     ctx.fillText("¡GANASTE!", GAME_WIDTH/2 - 140, GAME_HEIGHT/2);
 
+    // Mostrar puntuación final
+    ctx.fillStyle = "#FFD700";
+    ctx.font = "30px Arial";
+    ctx.fillText("PUNTOS: " + currentScore, GAME_WIDTH/2 - 120, GAME_HEIGHT/2 + 40);
+
+    // Mostrar high score
+    ctx.fillStyle = "#FF6B6B";
     ctx.font = "25px Arial";
-    ctx.fillText("CLICK PARA REINICIAR", GAME_WIDTH/2 - 150, GAME_HEIGHT/2 + 60);
+    ctx.fillText("HIGH SCORE: " + highScore, GAME_WIDTH/2 - 140, GAME_HEIGHT/2 + 80);
+
+    ctx.fillStyle = "white";
+    ctx.font = "25px Arial";
+    ctx.fillText("CLICK PARA REINICIAR", GAME_WIDTH/2 - 150, GAME_HEIGHT/2 + 130);
 }
 
 function drawPlants() {
@@ -913,6 +963,24 @@ canvas.addEventListener("click", function (e) {
     location.reload();
     return;
   }
+
+  if (gameWon) {
+    // Guardar high score si es mayor
+    if (currentScore > highScore) {
+      highScore = currentScore;
+      console.log("🏆 NUEVO HIGH SCORE:", highScore);
+      
+      try {
+        localStorage.setItem("pvzHighScore", highScore);
+        console.log("✅ High Score guardado en localStorage:", highScore);
+      } catch (e) {
+        console.error("❌ Error al guardar en localStorage:", e);
+        console.log("💡 Solución: Intenta con http:// en lugar de Open Live Server");
+      }
+    }
+    location.reload();
+    return;
+  }
   
   if (gameMusic.paused) {
     gameMusic.play();
@@ -1084,6 +1152,7 @@ function gameLoop(timestamp){
     drawSuns()
     drawUI()
     drawSunCounter()
+    drawScore()
     drawWaveMessage();
 
     if(gameOver){
@@ -1123,6 +1192,10 @@ startBtn.addEventListener("click", () => {
   gameStarted = true;
 
   gameMusic.play();
+
+  // Reiniciar score al iniciar nuevo juego
+  currentScore = 0;
+  console.log("🎮 Juego iniciado. High Score actual:", highScore);
 
   startWave();
   gameLoop();
