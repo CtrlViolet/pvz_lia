@@ -25,13 +25,15 @@ const GAME_WIDTH = 927;
 const GAME_HEIGHT = 657;
 
 // =======================================
-// 2.5 GAME OVER
+// 2.5 GAME OVER y CAMBIOS DE OLEADA
 // =======================================
 let gameOver = false
 
 let gameOverScale = 0 // empieza invisible
 let gameOverImage = new Image()
 
+let waveMessage = "";
+let waveMessageTimer = 0;
 // cambia la ruta tú
 gameOverImage.src = "assets/images/background/gameover.png"
 
@@ -135,9 +137,7 @@ class Zombie {
     this.height = CELL_HEIGHT;
 
     this.speed = 0.3;
-    this.hp = 100;
-
-    // estado actual
+    this.hp = 100 + (currentWave * 50);    // estado actual
     this.state = "walk"; // walk | eat | dead
 
     // animaciones
@@ -185,7 +185,7 @@ class Projectile {
     this.height = 20;
 
     this.speed = 2;
-    this.damage = 20;
+    this.damage = 15;
   }
 
   update() {
@@ -569,6 +569,21 @@ function updateSuns() {
   }
 }
 
+function drawWaveMessage() {
+  if (waveMessageTimer > 0) {
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillRect(0, GAME_HEIGHT / 2 - 40, GAME_WIDTH, 80);
+
+    ctx.fillStyle = "white";
+    ctx.font = "40px Arial";
+    ctx.textAlign = "center";
+
+    ctx.fillText(waveMessage, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 10);
+
+    waveMessageTimer--;
+  }
+}
+
 function startWave() {
   if (currentWave >= WAVES.length) {
     console.log("Ganaste (por ahora)");
@@ -584,8 +599,14 @@ function startWave() {
 
   waveInProgress = true;
 
+   // 🔥 MENSAJE
+  waveMessage = "OLEADA " + (currentWave + 1);
+  waveMessageTimer = 120; // dura ~2 segundos
+
   console.log("Oleada:", currentWave + 1);
 }
+
+
 function updateWaves() {
   // esperar siguiente oleada
   if (!waveInProgress) {
@@ -1032,6 +1053,7 @@ function gameLoop(timestamp){
     drawSuns()
     drawUI()
     drawSunCounter()
+    drawWaveMessage();
 
     if(gameOver){
         drawGameOver()
