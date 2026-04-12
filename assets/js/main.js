@@ -938,19 +938,25 @@ function drawGameOver() {
 // 12. INPUT
 // =======================================
 
-function getCellFromMouse(mouseX, mouseY) {
-  let col = Math.floor((mouseX - GRASS_X) / CELL_WIDTH);
-  let row = Math.floor((mouseY - GRASS_Y) / CELL_HEIGHT);
+// =======================================
+// 12. INPUT - FUNCIÓN AUXILIAR DE DETECCIÓN
+// =======================================
 
-  if (col >= 0 && col < COLS && row >= 0 && row < ROWS) {
-    return { col, row };
+function handleGameInput(e) {
+  // Obtener coordenadas basadas en si es touch o mouse
+  let clientX, clientY;
+  
+  if (e.touches) {
+    // Touch event
+    clientX = e.touches[0].clientX;
+    clientY = e.touches[0].clientY;
+  } else {
+    // Mouse event
+    clientX = e.clientX;
+    clientY = e.clientY;
   }
 
-  return null;
-}
-
-canvas.addEventListener("click", function (e) {
-    if (gameOver) {
+  if (gameOver) {
     gameMusic.pause();
     gameMusic.currentTime = 0;
     location.reload();
@@ -978,82 +984,72 @@ canvas.addEventListener("click", function (e) {
   if (gameMusic.paused) {
     gameMusic.play();
   }
-  const rect = canvas.getBoundingClientRect();
-  const mouseX = (e.clientX - rect.left) / scale;
-  const mouseY = (e.clientY - rect.top) / scale;
 
-  // ICONOS
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = (clientX - rect.left) / scale;
+  const mouseY = (clientY - rect.top) / scale;
+
+  console.log("🖱️ INPUT - X:", mouseX.toFixed(2), "Y:", mouseY.toFixed(2), "Scale:", scale.toFixed(2));
+
+  // ICONOS - Detección de clicks
   for (let i = 0; i < TOTAL_ICONS; i++) {
     let x = UI_X + i * (ICON_WIDTH + ICON_SPACING);
     let y = UI_Y;
+    let margin = 5;
 
-if (
-  mouseX >= x &&
-  mouseX <= x + ICON_WIDTH &&
-  mouseY >= y &&
-  mouseY <= y + ICON_HEIGHT
-) {
-  // 🔁 toggle selección
-  if (selectedIcon === i) {
-    selectedIcon = -1; // deseleccionar
-    console.log("Deseleccionado");
-  } else {
-    selectedIcon = i;
-    console.log("Seleccionado:", i);
-  }
-
-  return;
-}
-  }
-
-  // =======================================
-// CLICK EN SOLES
-// =======================================
-
-for (let i = 0; i < suns.length; i++) {
-
-    let s = suns[i];
-
-    // detectar click dentro del sol
-   if (
-  mouseX >= s.x &&
-  mouseX <= s.x + SUN_SIZE &&
-  mouseY >= s.y &&
-  mouseY <= s.y + SUN_SIZE
-){
-
-        // =======================================
-        // SUMAR SOLES CON LIMITE
-        // =======================================
-
-        if (sunPoints < MAX_SUN_POINTS) {
-
-            // suma protegida
-            sunPoints = Math.min(
-                sunPoints + (s.value || 0),
-                MAX_SUN_POINTS
-            );
-
-        }
-
-        // eliminar sol siempre (aunque no sume)
-        s.collected = true;
-
-        console.log("Soles:", sunPoints);
-
-        return;
+    if (
+      mouseX >= x - margin &&
+      mouseX <= x + ICON_WIDTH + margin &&
+      mouseY >= y - margin &&
+      mouseY <= y + ICON_HEIGHT + margin
+    ) {
+      // 🔁 toggle selección
+      if (selectedIcon === i) {
+        selectedIcon = -1;
+        console.log("✅ Icono DESELECCIONADO:", i);
+      } else {
+        selectedIcon = i;
+        console.log("✅ Icono SELECCIONADO:", i);
+      }
+      return;
     }
-}
+  }
 
-  // GRID
+  // CLICK EN SOLES - CON HITBOX GENEROSO
+  for (let i = 0; i < suns.length; i++) {
+    let s = suns[i];
+    let hitMargin = 20; // 20px de margen generoso
+
+    if (
+      mouseX >= s.x - hitMargin &&
+      mouseX <= s.x + SUN_SIZE + hitMargin &&
+      mouseY >= s.y - hitMargin &&
+      mouseY <= s.y + SUN_SIZE + hitMargin
+    ) {
+      console.log("☀️ SOL DETECTADO en posición:", s.x, s.y);
+
+      if (sunPoints < MAX_SUN_POINTS) {
+        sunPoints = Math.min(sunPoints + (s.value || 0), MAX_SUN_POINTS);
+        console.log("✅ Sol recolectado! Soles actuales:", sunPoints);
+      }
+
+      s.collected = true;
+      return;
+    }
+  }
+
+  // GRID - PLANTAR PLANTAS
   const cell = getCellFromMouse(mouseX, mouseY);
 
   if (cell && selectedIcon !== -1) {
     let current = board[cell.row][cell.col];
 
+    console.log("🌱 CLICK EN CELDA - Col:", cell.col, "Row:", cell.row, "Icono:", selectedIcon);
+
     if (selectedIcon === PLANTS.SHOVEL) {
       if (current !== null) {
         board[cell.row][cell.col] = null;
+        console.log("🔧 Planta ELIMINADA en", cell.col, cell.row);
       }
       return;
     }
@@ -1061,31 +1057,23 @@ for (let i = 0; i < suns.length; i++) {
     if (selectedIcon === PLANTS.REPEATER_UPGRADE) {
       let cost = PLANT_COST[PLANTS.REPEATER_UPGRADE] || 0;
 
-      // validar si hay repetidora
       if (current !== null && current.type === PLANTS.REPEATER) {
-        // validar soles
         if (sunPoints >= cost) {
           sunPoints -= cost;
-
-         board[cell.row][cell.col] = {
-        type: PLANTS.REPEATER_UPGRADE,
-         hp: current.hp,
-
-        anim: new SpriteAnimation(
-        getPlantPath(PLANTS.REPEATER_UPGRADE),
-         getPlantFrames(PLANTS.REPEATER_UPGRADE)
-        )
-    };
-          selectedIcon = -1; // 👈 deseleccionar
-
-          console.log("Repetidora mejorada. Soles:", sunPoints);
+          board[cell.row][cell.col] = {
+            type: PLANTS.REPEATER_UPGRADE,
+            hp: current.hp,
+            anim: new SpriteAnimation(
+              getPlantPath(PLANTS.REPEATER_UPGRADE),
+              getPlantFrames(PLANTS.REPEATER_UPGRADE)
+            )
+          };
+          selectedIcon = -1;
+          console.log("⬆️ REPETIDORA MEJORADA! Soles:", sunPoints);
         } else {
-          console.log("No tienes suficientes soles");
+          console.log("❌ Soles insuficientes para mejorar (necesitas:", cost, "tienes:", sunPoints, ")");
         }
-      } else {
-        console.log("Solo puedes mejorar una repetidora");
       }
-
       return;
     }
 
@@ -1094,27 +1082,47 @@ for (let i = 0; i < suns.length; i++) {
 
       if (sunPoints >= cost) {
         sunPoints -= cost;
-
         board[cell.row][cell.col] = {
-        type: selectedIcon,
-        hp: 100,
-        shootTimer: 0,
-
-  // 👇 cada planta tiene su propia animación
-  anim: new SpriteAnimation(
-    getPlantPath(selectedIcon),
-    getPlantFrames(selectedIcon)
-  )
-};
-
-        selectedIcon = -1; // ← DESELECCIONA AUTOMÁTICAMENTE
-        
-        console.log("Plantado. Soles:", sunPoints);
+          type: selectedIcon,
+          hp: 100,
+          shootTimer: 0,
+          anim: new SpriteAnimation(getPlantPath(selectedIcon), getPlantFrames(selectedIcon))
+        };
+        selectedIcon = -1;
+        console.log("✅ PLANTA PLANTADA! Tipo:", selectedIcon, "Soles restantes:", sunPoints);
       } else {
-        console.log("No tienes suficientes soles");
+        console.log("❌ Soles insuficientes (necesitas:", cost, "tienes:", sunPoints, ")");
       }
     }
   }
+}
+
+function getCellFromMouse(mouseX, mouseY) {
+  let col = Math.floor((mouseX - GRASS_X) / CELL_WIDTH);
+  let row = Math.floor((mouseY - GRASS_Y) / CELL_HEIGHT);
+
+  if (col >= 0 && col < COLS && row >= 0 && row < ROWS) {
+    return { col, row };
+  }
+
+  return null;
+}
+
+// =======================================
+// CLICK EVENT
+// =======================================
+canvas.addEventListener("click", handleGameInput);
+
+// =======================================
+// TOUCH EVENTS (para mobile)
+// =======================================
+canvas.addEventListener("touchstart", function(e) {
+  e.preventDefault(); // Evita zoom doble tap
+  handleGameInput(e);
+});
+
+canvas.addEventListener("touchend", function(e) {
+  e.preventDefault();
 });
 
 // =======================================
