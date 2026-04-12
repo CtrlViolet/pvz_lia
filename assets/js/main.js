@@ -14,7 +14,7 @@ let deltaTime = 0
 // =======================================
 // 1.5 CONTROL DE TIEMPO
 // =======================================
-
+let gameStarted = false;
 const MAX_SUN_POINTS = 500;
 
 // =======================================
@@ -44,6 +44,9 @@ gameOverImage.src = "assets/images/background/gameover.png"
 let gameMusic = new Audio("assets/music/song3.mp3"); // tú cambias ruta
 gameMusic.loop = true;
 gameMusic.volume = 0.5;
+
+const clickSound = new Audio("assets/music/readysetplant.mp3"); // tú cambias ruta
+clickSound.volume = 0.5; // opcional
 // =======================================
 // 3. TIPOS DE PLANTAS
 // =======================================
@@ -882,7 +885,7 @@ canvas.addEventListener("click", function (e) {
     location.reload();
     return;
   }
-
+  
   if (gameMusic.paused) {
     gameMusic.play();
   }
@@ -1066,6 +1069,25 @@ function gameLoop(timestamp){
 // =======================================
 
 garden.onload = function () {
-    gameMusic.play(); // 🔥 inicia música
-   gameLoop();
+    console.log("Juego listo, esperando inicio...");
 };
+// =======================================
+// 14. PANTALLA DE INICIO
+// =======================================
+const startBtn = document.getElementById("startBtn");
+const startScreen = document.getElementById("startScreen");
+
+startBtn.addEventListener("click", () => {
+
+  clickSound.currentTime = 0; // 🔥 importante
+  clickSound.play();
+
+  startScreen.style.display = "none";
+
+  gameStarted = true;
+
+  gameMusic.play();
+
+  startWave();
+  gameLoop();
+});
