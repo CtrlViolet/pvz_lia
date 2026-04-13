@@ -71,9 +71,23 @@ try {
 // 2.7 MÚSICA
 // =======================================
 
-let gameMusic = new Audio("assets/music/song3.mp3"); // tú cambias ruta
+// 1. Creamos una lista con las 3 canciones (asegúrate de que las rutas y nombres sean correctos)
+const SONGS = [
+  "assets/music/song1.mp3", // Canción 1
+  "assets/music/song2.mp3", // Canción 2
+  "assets/music/song3.mp3"  // Canción 3
+];
+
+// 2. Elegimos un número aleatorio entre 0 y 2 (porque hay 3 canciones)
+const randomIndex = Math.floor(Math.random() * SONGS.length);
+const selectedSong = SONGS[randomIndex];
+
+// 3. Cargamos la canción que haya salido sorteada
+let gameMusic = new Audio(selectedSong); 
 gameMusic.loop = true;
 gameMusic.volume = 0.5;
+
+console.log("🎵 Canción elegida al azar:", selectedSong);
 
 const clickSound = new Audio("assets/music/readysetplant.mp3"); // tú cambias ruta
 clickSound.volume = 0.5; // opcional
