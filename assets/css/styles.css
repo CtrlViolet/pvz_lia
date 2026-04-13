@@ -148,6 +148,13 @@ footer {
     color: white;
     padding: 10px 0;
 }
+
+/* =========================
+   CURSOR GLOBAL PARA TODO EL JUEGO
+========================= */
+* {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="%2322dd22" stroke="%231aa01a" stroke-width="2"/></svg>') 12 12, auto !important;
+}
 /* =========================
    RESPONSIVE
 ========================= */

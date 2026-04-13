@@ -46,6 +46,13 @@ let currentScore = 0;
 let highScore = 0;
 const ZOMBIE_KILL_POINTS = 100; // puntos por matar un zombie
 
+// Cargar el puntaje de localStorage AL INICIO del juego
+const guardado = localStorage.getItem("pvzHighScore");
+if (guardado !== null) {
+    highScore = parseInt(guardado, 10); // Convertimos el texto a número
+    console.log("Récord cargado exitosamente:", highScore);
+}
+
 // Cargar high score con manejo de errores
 try {
   const savedScore = localStorage.getItem("pvzHighScore");
@@ -957,6 +964,17 @@ function handleGameInput(e) {
   }
 
   if (gameOver) {
+    // 🔥 NUEVO: Verificar y guardar el récord también cuando el jugador PIERDE
+    if (currentScore > highScore) {
+      highScore = currentScore;
+      console.log("🏆 NUEVO HIGH SCORE (Al perder):", highScore);
+      try {
+        localStorage.setItem("pvzHighScore", highScore.toString());
+      } catch (err) {
+        console.error("❌ Error al guardar en localStorage:", err);
+      }
+    }
+
     gameMusic.pause();
     gameMusic.currentTime = 0;
     location.reload();
