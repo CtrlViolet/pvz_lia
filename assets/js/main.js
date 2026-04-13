@@ -972,8 +972,8 @@ function handleGameInput(e) {
       try {
         localStorage.setItem("pvzHighScore", highScore);
         console.log("✅ High Score guardado en localStorage:", highScore);
-      } catch (e) {
-        console.error("❌ Error al guardar en localStorage:", e);
+      } catch (err) {
+        console.error("❌ Error al guardar en localStorage:", err);
         console.log("💡 Solución: Intenta con http:// en lugar de Open Live Server");
       }
     }
@@ -987,21 +987,25 @@ function handleGameInput(e) {
 
   const rect = canvas.getBoundingClientRect();
   
-  // Coordenadas relativas al canvas (sin escala)
+  // 🔥 SOLUCIÓN AQUÍ: Calculamos la escala exacta en X y en Y
+  const scaleX = GAME_WIDTH / rect.width;
+  const scaleY = GAME_HEIGHT / rect.height;
+  
+  // Coordenadas relativas a la esquina del canvas visual
   const clickX = clientX - rect.left;
   const clickY = clientY - rect.top;
   
-  // Coordenadas en el sistema de coordenadas del juego (aplicando scale)
-  const gameX = clickX / scale;
-  const gameY = clickY / scale;
+  // Coordenadas mapeadas al tamaño interno lógico del juego
+  const gameX = clickX * scaleX;
+  const gameY = clickY * scaleY;
 
   console.log("═══ CLICK DEBUG ═══");
   console.log("Canvas rect:", { left: rect.left, top: rect.top, width: rect.width, height: rect.height });
   console.log("Canvas interno ancho/alto:", { width: canvas.width, height: canvas.height });
   console.log("Client coords:", { clientX, clientY });
   console.log("Click en canvas:", { clickX, clickY });
-  console.log("Game coords (con scale):", { gameX: gameX.toFixed(2), gameY: gameY.toFixed(2) });
-  console.log("Scale:", scale.toFixed(4));
+  console.log("Game coords (corregido):", { gameX: gameX.toFixed(2), gameY: gameY.toFixed(2) });
+  console.log("ScaleX y ScaleY:", scaleX.toFixed(4), scaleY.toFixed(4));
   console.log("═════════════════════");
 
   // ICONOS - Detección de clicks

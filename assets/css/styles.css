@@ -124,10 +124,21 @@ canvas {
     display: block;
     max-width: 100%;
     height: auto;
-    /* Cursor personalizado verde */
-    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="%2322dd22" stroke="%231aa01a" stroke-width="2"/></svg>') 12 12, auto;
+    cursor: url('data:image/svg+xml;utf8,<svg ... />') 12 12, auto;
+
+    /* 🔥 AGREGA ESTO PARA MÓVILES */
+    touch-action: none;
+    /* Evita que la pantalla se mueva o haga zoom al jugar */
 }
 
+/* Y también agrégalo en tu media query para pantallas pequeñas */
+@media (max-width: 768px) {
+    canvas {
+        width: 95%;
+        height: auto;
+        touch-action: none;
+    }
+}
 /* =========================
    FOOTER
 ========================= */
